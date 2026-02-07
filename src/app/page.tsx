@@ -1,6 +1,7 @@
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { AgentStatus } from "@/components/AgentStatus";
 import { QuickStats } from "@/components/QuickStats";
+import { WalletTracker } from "@/components/WalletTracker";
 
 export default function Home() {
   return (
@@ -27,7 +28,10 @@ export default function Home() {
                   day: 'numeric' 
                 })}
               </span>
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">🔒 Secured</span>
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              </div>
             </div>
           </div>
         </div>
@@ -45,9 +49,21 @@ export default function Home() {
             <ActivityFeed />
           </div>
 
-          {/* Agent Status - Takes 1 column */}
-          <div className="lg:col-span-1">
+          {/* Right Column - Agent Status + Wallet Tracker */}
+          <div className="lg:col-span-1 space-y-6">
+            <WalletTracker />
             <AgentStatus />
+          </div>
+        </div>
+
+        {/* Security Notice */}
+        <div className="mt-6 p-4 bg-gray-900/50 border border-gray-800 rounded-lg">
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <span>🔒</span>
+            <span>
+              This dashboard is read-only. No agent control or input fields. 
+              Wallet data is fetched from public on-chain sources only.
+            </span>
           </div>
         </div>
       </div>
