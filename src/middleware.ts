@@ -4,16 +4,12 @@ import type { NextRequest } from "next/server";
 // Simple token-based authentication
 // Token is set via DASHBOARD_TOKEN env var
 export function middleware(request: NextRequest) {
-  // Skip auth for the login page, static assets, and certain API routes
+  // Skip auth for the login page, static assets, and ALL /api/reviews endpoints
   if (
     request.nextUrl.pathname === "/login" ||
     request.nextUrl.pathname.startsWith("/_next") ||
     request.nextUrl.pathname.startsWith("/favicon") ||
-    // Allow agents to submit reviews, Captain to poll, and seed endpoint
-    (request.nextUrl.pathname.startsWith("/api/reviews") && 
-     (request.method === "POST" || 
-      request.nextUrl.pathname.includes("/pending") ||
-      request.nextUrl.pathname.includes("/seed")))
+    request.nextUrl.pathname.startsWith("/api/reviews")
   ) {
     return NextResponse.next();
   }
@@ -27,7 +23,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Validate token
+  // Require authentication for dashboard pages and /api/auth
   if (!token || token !== validToken) {
     // Redirect to login
     const loginUrl = new URL("/login", request.url);
@@ -40,13 +36,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api/health (health checks)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
     "/((?!api/health|_next/static|_next/image|favicon.ico).*)",
   ],
 };
