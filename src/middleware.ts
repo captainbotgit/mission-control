@@ -9,9 +9,11 @@ export function middleware(request: NextRequest) {
     request.nextUrl.pathname === "/login" ||
     request.nextUrl.pathname.startsWith("/_next") ||
     request.nextUrl.pathname.startsWith("/favicon") ||
-    // Allow agents to submit reviews and Captain to poll
+    // Allow agents to submit reviews, Captain to poll, and seed endpoint
     (request.nextUrl.pathname.startsWith("/api/reviews") && 
-     (request.method === "POST" || request.nextUrl.pathname.includes("/pending")))
+     (request.method === "POST" || 
+      request.nextUrl.pathname.includes("/pending") ||
+      request.nextUrl.pathname.includes("/seed")))
   ) {
     return NextResponse.next();
   }
