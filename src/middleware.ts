@@ -1,33 +1,49 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// Simple token-based authentication
-// Token is set via DASHBOARD_TOKEN env var
+// Token-based authentication for Mission Control
+// DASHBOARD_TOKEN env var = the password Blake enters on login
+// API_SECRET env var (optional) = bearer token for agent API submissions
 export function middleware(request: NextRequest) {
-  // Skip auth for the login page, static assets, and ALL /api/reviews endpoints
+  const path = request.nextUrl.pathname;
+
+  // Public paths — no auth required
   if (
-    request.nextUrl.pathname === "/login" ||
-    request.nextUrl.pathname.startsWith("/_next") ||
-    request.nextUrl.pathname.startsWith("/favicon") ||
-    request.nextUrl.pathname.startsWith("/api/reviews")
+    path === "/login" ||
+    path.startsWith("/_next") ||
+    path.startsWith("/favicon") ||
+    path === "/api/auth" ||
+    path === "/api/health"
   ) {
     return NextResponse.next();
   }
 
-  // Check for auth token in cookie
+  // API routes: check bearer token OR cookie
+  if (path.startsWith("/api/")) {
+    const authHeader = request.headers.get("authorization");
+    const apiSecret = process.env.API_SECRET || process.env.DASHBOARD_TOKEN;
+    const cookieToken = request.cookies.get("dashboard_token")?.value;
+
+    if (!apiSecret) return NextResponse.next(); // no auth configured (local dev)
+
+    // Accept bearer token (for agents) or cookie (for Blake's browser)
+    const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (bearerToken === apiSecret || cookieToken === apiSecret) {
+      return NextResponse.next();
+    }
+
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Dashboard pages: check cookie
   const token = request.cookies.get("dashboard_token")?.value;
   const validToken = process.env.DASHBOARD_TOKEN;
 
-  // If no token configured, allow access (local dev)
-  if (!validToken) {
-    return NextResponse.next();
-  }
+  if (!validToken) return NextResponse.next();
 
-  // Require authentication for dashboard pages and /api/auth
   if (!token || token !== validToken) {
-    // Redirect to login
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("redirect", request.nextUrl.pathname);
+    loginUrl.searchParams.set("redirect", path);
     return NextResponse.redirect(loginUrl);
   }
 
@@ -36,6 +52,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api/health|_next/static|_next/image|favicon.ico).*)",
+    "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 };
