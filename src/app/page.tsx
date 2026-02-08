@@ -22,17 +22,21 @@ export default function Home() {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-400">
+              <a 
+                href="/reviews"
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
+              >
+                📋 Review Portal
+              </a>
+              <span className="text-sm text-gray-400 hidden md:block">
                 {new Date().toLocaleDateString('en-US', { 
                   weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
+                  month: 'short', 
                   day: 'numeric' 
                 })}
               </span>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-green-500">● Live Data</span>
-                <span className="text-xs text-gray-500">🔒 Read-Only</span>
+                <span className="text-xs text-green-500">● Live</span>
               </div>
             </div>
           </div>
