@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
 
-/**
- * API: Get tasks from TASK-BOARD.md or HEARTBEAT.md files
- * Reads from ~/.openclaw/agents/*/workspace/
- */
+// API: Get tasks from TASK-BOARD.md or HEARTBEAT.md files
+// Reads from ~/.openclaw/agents/{agent}/workspace/
 
 interface Task {
   id: string;

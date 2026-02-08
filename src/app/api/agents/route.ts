@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
 
-/**
- * API: Get agent list and status from filesystem
- * Reads from ~/.openclaw/agents/
- */
+// API: Get agent list and status from filesystem
+// Reads from ~/.openclaw/agents/
 
 interface AgentInfo {
   id: string;

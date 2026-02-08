@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
 
-/**
- * API: Get recent activity from agent memory files
- * Parses markdown files from ~/.openclaw/agents/*/workspace/memory/
- */
+// API: Get recent activity from agent memory files
+// Parses markdown files from ~/.openclaw/agents/{agent}/workspace/memory/
 
 interface ActivityItem {
   id: string;
