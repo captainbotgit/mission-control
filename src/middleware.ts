@@ -4,11 +4,14 @@ import type { NextRequest } from "next/server";
 // Simple token-based authentication
 // Token is set via DASHBOARD_TOKEN env var
 export function middleware(request: NextRequest) {
-  // Skip auth for the login page and static assets
+  // Skip auth for the login page, static assets, and certain API routes
   if (
     request.nextUrl.pathname === "/login" ||
     request.nextUrl.pathname.startsWith("/_next") ||
-    request.nextUrl.pathname.startsWith("/favicon")
+    request.nextUrl.pathname.startsWith("/favicon") ||
+    // Allow agents to submit reviews and Captain to poll
+    (request.nextUrl.pathname.startsWith("/api/reviews") && 
+     (request.method === "POST" || request.nextUrl.pathname.includes("/pending")))
   ) {
     return NextResponse.next();
   }
