@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface ActivityItem {
@@ -12,64 +12,6 @@ interface ActivityItem {
   timestamp: Date;
   type: 'task' | 'commit' | 'message' | 'alert' | 'deploy';
 }
-
-// Mock data - will be replaced with real data from agent memory files
-const mockActivities: ActivityItem[] = [
-  {
-    id: '1',
-    agent: 'Forge',
-    agentEmoji: '⚙️',
-    action: 'Completed security audit',
-    details: 'ClawdBar security fixes deployed - bcrypt hashing + crypto.randomBytes',
-    timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 min ago
-    type: 'deploy',
-  },
-  {
-    id: '2',
-    agent: 'Forge',
-    agentEmoji: '⚙️',
-    action: 'Created plan document',
-    details: 'PracticeEngine Update Plan - 3-phase roadmap to Feb 28 launch',
-    timestamp: new Date(Date.now() - 1000 * 60 * 45), // 45 min ago
-    type: 'task',
-  },
-  {
-    id: '3',
-    agent: 'Forge',
-    agentEmoji: '⚙️',
-    action: 'Created plan document',
-    details: 'SkillForge Plan - Visual skill builder for ClawHub',
-    timestamp: new Date(Date.now() - 1000 * 60 * 50), // 50 min ago
-    type: 'task',
-  },
-  {
-    id: '4',
-    agent: 'Forge',
-    agentEmoji: '⚙️',
-    action: 'Security protocol update',
-    details: 'Fleet-wide security protocol v2.0 - Addresses 5 attack vectors from VirusTotal',
-    timestamp: new Date(Date.now() - 1000 * 60 * 90), // 1.5 hours ago
-    type: 'alert',
-  },
-  {
-    id: '5',
-    agent: 'Captain',
-    agentEmoji: '🎖️',
-    action: 'Assigned priorities',
-    details: 'Sunday deadline set: Mission Control, ClawdBar, PracticeEngine, SkillForge',
-    timestamp: new Date(Date.now() - 1000 * 60 * 120), // 2 hours ago
-    type: 'message',
-  },
-  {
-    id: '6',
-    agent: 'Friday',
-    agentEmoji: '📚',
-    action: 'Research completed',
-    details: 'Content automation research - Remotion, n8n, captions (42KB report)',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 18), // 18 hours ago
-    type: 'task',
-  },
-];
 
 const typeColors = {
   task: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
@@ -90,11 +32,36 @@ const typeIcons = {
 export function ActivityFeed() {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [filter, setFilter] = useState<string>('all');
+  const [loading, setLoading] = useState(true);
+  const [dataSource, setDataSource] = useState<string>('');
+
+  const fetchActivities = useCallback(async () => {
+    try {
+      const response = await fetch('/api/activity?limit=30');
+      const data = await response.json();
+      
+      // Convert timestamp strings to Date objects
+      const parsed = data.activities.map((a: any) => ({
+        ...a,
+        timestamp: new Date(a.timestamp),
+      }));
+      
+      setActivities(parsed);
+      setDataSource(data.source);
+    } catch (error) {
+      console.error('Failed to fetch activities:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    // In production, this would fetch from an API that reads agent memory files
-    setActivities(mockActivities);
-  }, []);
+    fetchActivities();
+    
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(fetchActivities, 30000);
+    return () => clearInterval(interval);
+  }, [fetchActivities]);
 
   const filteredActivities = filter === 'all' 
     ? activities 
@@ -162,6 +129,7 @@ export function ActivityFeed() {
       <div className="px-4 py-2 border-t border-gray-800 bg-gray-900/50">
         <p className="text-xs text-gray-500 text-center">
           Showing {filteredActivities.length} activities • Auto-refreshes every 30s
+          {dataSource && <span className="ml-2">• Source: {dataSource}</span>}
         </p>
       </div>
     </div>

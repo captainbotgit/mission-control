@@ -2,6 +2,8 @@ import { ActivityFeed } from "@/components/ActivityFeed";
 import { AgentStatus } from "@/components/AgentStatus";
 import { QuickStats } from "@/components/QuickStats";
 import { WalletTracker } from "@/components/WalletTracker";
+import { TaskBoard } from "@/components/TaskBoard";
+import { CronCalendar } from "@/components/CronCalendar";
 
 export default function Home() {
   return (
@@ -29,8 +31,8 @@ export default function Home() {
                 })}
               </span>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500">🔒 Secured</span>
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                <span className="text-xs text-green-500">● Live Data</span>
+                <span className="text-xs text-gray-500">🔒 Read-Only</span>
               </div>
             </div>
           </div>
@@ -42,17 +44,23 @@ export default function Home() {
         {/* Quick Stats */}
         <QuickStats />
 
-        {/* Main Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-          {/* Activity Feed - Takes 2 columns */}
-          <div className="lg:col-span-2">
+        {/* Main Grid - 3 columns on large screens */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
+          {/* Left Column - Activity Feed (5 cols) */}
+          <div className="lg:col-span-5">
             <ActivityFeed />
           </div>
 
-          {/* Right Column - Agent Status + Wallet Tracker */}
-          <div className="lg:col-span-1 space-y-6">
-            <WalletTracker />
+          {/* Middle Column - Tasks (4 cols) */}
+          <div className="lg:col-span-4">
+            <TaskBoard />
+          </div>
+
+          {/* Right Column - Status + Wallet + Cron (3 cols) */}
+          <div className="lg:col-span-3 space-y-6">
             <AgentStatus />
+            <WalletTracker />
+            <CronCalendar />
           </div>
         </div>
 
@@ -61,8 +69,8 @@ export default function Home() {
           <div className="flex items-center gap-2 text-xs text-gray-500">
             <span>🔒</span>
             <span>
-              This dashboard is read-only. No agent control or input fields. 
-              Wallet data is fetched from public on-chain sources only.
+              This dashboard is read-only. Data sources: Agent memory files, gateway cron, on-chain wallet. 
+              No agent control or input fields.
             </span>
           </div>
         </div>
