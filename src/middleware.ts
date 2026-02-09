@@ -18,6 +18,19 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Public read-only dashboard APIs (GET only)
+  const isReadOnlyDashboardAPI = 
+    request.method === "GET" && 
+    (path === "/api/agents" || 
+     path === "/api/activity" || 
+     path === "/api/tasks" || 
+     path === "/api/cron" ||
+     path === "/api/wallet");
+  
+  if (isReadOnlyDashboardAPI) {
+    return NextResponse.next();
+  }
+
   // API routes: check bearer token OR cookie
   if (path.startsWith("/api/")) {
     const authHeader = request.headers.get("authorization");
