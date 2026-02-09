@@ -187,6 +187,76 @@ export async function updateReviewDecision(
   status: ReviewStatus, 
   comment?: string
 ): Promise<ReviewItem | null> {
+  const decision = {
+    status,
+    comment,
+    decidedAt: new Date().toISOString(),
+  };
+
+  // Try Supabase first
+  if (SUPABASE_URL && SUPABASE_KEY) {
+    try {
+      // First get current review to preserve history
+      const getResponse = await fetch(
+        `${SUPABASE_URL}/rest/v1/reviews?id=eq.${id}&select=*`,
+        {
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+          },
+        }
+      );
+      
+      if (!getResponse.ok) {
+        console.error('[Reviews] Failed to fetch review for update');
+        return null;
+      }
+      
+      const [existingData] = await getResponse.json();
+      if (!existingData) return null;
+      
+      // Build history
+      const history = existingData.history || [];
+      if (existingData.decision) {
+        history.push({
+          ...existingData.decision,
+          decidedBy: 'blake',
+        });
+      }
+      
+      // Update in Supabase
+      const updateResponse = await fetch(
+        `${SUPABASE_URL}/rest/v1/reviews?id=eq.${id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation',
+          },
+          body: JSON.stringify({
+            status,
+            decision,
+            history,
+          }),
+        }
+      );
+      
+      if (updateResponse.ok) {
+        const [updatedData] = await updateResponse.json();
+        console.log(`[Reviews] Updated ${id} to ${status} in Supabase`);
+        return mapSupabaseToReview(updatedData);
+      } else {
+        const errorText = await updateResponse.text();
+        console.error('[Reviews] Supabase update failed:', errorText);
+      }
+    } catch (e) {
+      console.error('[Reviews] Supabase update error:', e);
+    }
+  }
+
+  // Fall back to local/memory
   const store = await getReviews();
   const review = store.reviews.find(r => r.id === id);
   
@@ -203,11 +273,7 @@ export async function updateReviewDecision(
   
   // Set new decision
   review.status = status;
-  review.decision = {
-    status,
-    comment,
-    decidedAt: new Date().toISOString(),
-  };
+  review.decision = decision;
   
   await saveReviews(store);
   return review;

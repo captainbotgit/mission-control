@@ -4,19 +4,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { ReviewCard } from './ReviewCard';
 import { ReviewItem, ReviewStatus } from '@/lib/reviews';
 
-interface PendingDecision {
-  id: string;
-  status: ReviewStatus;
-  comment?: string;
-}
-
 export function ReviewQueue() {
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [pendingDecisions, setPendingDecisions] = useState<Map<string, PendingDecision>>(new Map());
-  const [submitMessage, setSubmitMessage] = useState<string | null>(null);
+  const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const fetchReviews = useCallback(async () => {
     try {
@@ -34,49 +27,53 @@ export function ReviewQueue() {
     fetchReviews();
   }, [fetchReviews]);
 
-  const handleDecision = (id: string, status: ReviewStatus, comment?: string) => {
-    setPendingDecisions(prev => {
-      const next = new Map(prev);
-      next.set(id, { id, status, comment });
-      return next;
-    });
-  };
-
-  const handleSubmitAll = async () => {
-    if (pendingDecisions.size === 0) {
-      setSubmitMessage('No decisions to submit');
-      setTimeout(() => setSubmitMessage(null), 3000);
-      return;
-    }
-
-    setSubmitting(true);
+  // IMMEDIATE PERSIST: Each decision saves to Supabase right away
+  const handleDecision = async (id: string, status: ReviewStatus, comment?: string) => {
+    // Mark as saving
+    setSavingIds(prev => new Set(prev).add(id));
+    
     try {
-      const decisions = Array.from(pendingDecisions.values());
-      const response = await fetch('/api/reviews/submit', {
-        method: 'POST',
+      const response = await fetch(`/api/reviews/${id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ decisions }),
+        body: JSON.stringify({ status, comment }),
       });
 
       const data = await response.json();
 
       if (data.success) {
-        setSubmitMessage(`✅ Submitted ${data.updated} decisions`);
-        setPendingDecisions(new Map());
-        fetchReviews(); // Refresh list
+        // Update local state to reflect the change
+        setReviews(prev => prev.map(r => 
+          r.id === id 
+            ? { ...r, status, decision: { status, comment, decidedAt: new Date().toISOString() } }
+            : r
+        ));
+        
+        setMessage({ type: 'success', text: `✅ ${status.replace('_', ' ')} — saved!` });
+        
+        // Remove from list after short delay (so user sees the status change)
+        setTimeout(() => {
+          setReviews(prev => prev.filter(r => r.id !== id));
+        }, 1500);
       } else {
-        setSubmitMessage(`❌ Error: ${data.error}`);
+        setMessage({ type: 'error', text: `❌ Failed to save: ${data.error}` });
       }
     } catch (error) {
-      setSubmitMessage('❌ Failed to submit decisions');
+      console.error('Failed to save decision:', error);
+      setMessage({ type: 'error', text: '❌ Network error — decision not saved!' });
     } finally {
-      setSubmitting(false);
-      setTimeout(() => setSubmitMessage(null), 5000);
+      setSavingIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      
+      // Clear message after 3 seconds
+      setTimeout(() => setMessage(null), 3000);
     }
   };
 
   const pendingCount = reviews.length;
-  const decidedCount = pendingDecisions.size;
 
   return (
     <div className="space-y-6">
@@ -87,43 +84,19 @@ export function ReviewQueue() {
             <p className="text-3xl font-bold text-blue-400">{pendingCount}</p>
             <p className="text-xs text-gray-500">Pending</p>
           </div>
-          <div className="text-center">
-            <p className="text-3xl font-bold text-green-400">{decidedCount}</p>
-            <p className="text-xs text-gray-500">Decided</p>
-          </div>
         </div>
-
-        {/* Submit Button */}
-        <button
-          onClick={handleSubmitAll}
-          disabled={submitting || decidedCount === 0}
-          className={`px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-colors ${
-            decidedCount > 0
-              ? 'bg-blue-600 hover:bg-blue-700 text-white'
-              : 'bg-gray-700 text-gray-400 cursor-not-allowed'
-          }`}
-        >
-          {submitting ? (
-            <>
-              <span className="animate-spin">⏳</span>
-              Submitting...
-            </>
-          ) : (
-            <>
-              📤 Submit All ({decidedCount})
-            </>
-          )}
-        </button>
+        
+        <div className="text-xs text-gray-500">
+          ⚡ Decisions save immediately
+        </div>
       </div>
 
-      {/* Submit Message */}
-      {submitMessage && (
-        <div className={`p-4 rounded-lg text-center ${
-          submitMessage.startsWith('✅') ? 'bg-green-500/20 text-green-400' :
-          submitMessage.startsWith('❌') ? 'bg-red-500/20 text-red-400' :
-          'bg-blue-500/20 text-blue-400'
+      {/* Status Message */}
+      {message && (
+        <div className={`p-4 rounded-lg text-center font-medium ${
+          message.type === 'success' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
         }`}>
-          {submitMessage}
+          {message.text}
         </div>
       )}
 
@@ -142,16 +115,20 @@ export function ReviewQueue() {
       ) : (
         <div className="space-y-4">
           {reviews.map((review) => (
-            <ReviewCard
-              key={review.id}
-              review={{
-                ...review,
-                status: pendingDecisions.get(review.id)?.status || review.status,
-              }}
-              onDecision={handleDecision}
-              expanded={expandedId === review.id}
-              onToggleExpand={() => setExpandedId(expandedId === review.id ? null : review.id)}
-            />
+            <div key={review.id} className="relative">
+              {savingIds.has(review.id) && (
+                <div className="absolute inset-0 bg-gray-900/80 rounded-xl flex items-center justify-center z-10">
+                  <span className="animate-spin text-2xl">⏳</span>
+                  <span className="ml-2 text-gray-300">Saving...</span>
+                </div>
+              )}
+              <ReviewCard
+                review={review}
+                onDecision={handleDecision}
+                expanded={expandedId === review.id}
+                onToggleExpand={() => setExpandedId(expandedId === review.id ? null : review.id)}
+              />
+            </div>
           ))}
         </div>
       )}
