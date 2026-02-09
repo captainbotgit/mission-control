@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
- * API: Get cron jobs from OpenClaw Gateway
- * Proxies to the gateway's cron API
+ * API: Get cron jobs
+ * Priority: Gateway (live) > Supabase (cached) > Mock
  */
 
 interface CronJob {
@@ -22,56 +22,84 @@ interface CronJob {
 
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4440';
 const GATEWAY_TOKEN = process.env.GATEWAY_TOKEN || '';
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 export async function GET(request: NextRequest) {
-  try {
-    // Try to fetch from gateway
-    if (GATEWAY_URL && GATEWAY_TOKEN) {
-      try {
-        const response = await fetch(`${GATEWAY_URL}/api/cron/list`, {
-          headers: {
-            'Authorization': `Bearer ${GATEWAY_TOKEN}`,
-            'Content-Type': 'application/json',
-          },
-          // Short timeout
-          signal: AbortSignal.timeout(5000),
+  // Try gateway first (live data)
+  if (GATEWAY_URL && GATEWAY_TOKEN) {
+    try {
+      const response = await fetch(`${GATEWAY_URL}/api/cron/list`, {
+        headers: {
+          'Authorization': `Bearer ${GATEWAY_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        signal: AbortSignal.timeout(5000),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return NextResponse.json({
+          jobs: data.jobs || [],
+          source: 'gateway',
         });
-
-        if (response.ok) {
-          const data = await response.json();
-          return NextResponse.json({
-            jobs: data.jobs || [],
-            source: 'gateway',
-          });
-        }
-      } catch (e) {
-        console.log('[Cron API] Gateway not available:', e);
       }
+    } catch (e) {
+      console.log('[Cron API] Gateway not available');
     }
-
-    // Return mock data if gateway not available
-    return NextResponse.json({
-      jobs: getMockCronJobs(),
-      source: 'mock',
-      message: 'Gateway not available, showing mock data',
-    });
-
-  } catch (error) {
-    console.error('[Cron API] Error:', error);
-    return NextResponse.json({
-      jobs: getMockCronJobs(),
-      source: 'mock',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
   }
+
+  // Try Supabase (cached snapshot)
+  if (SUPABASE_URL && SUPABASE_KEY) {
+    try {
+      const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/dashboard_cron_jobs?select=*&order=name.asc`,
+        {
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+          },
+          next: { revalidate: 60 },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const jobs: CronJob[] = data.map((row: any) => ({
+          id: row.id,
+          name: row.name,
+          schedule: {
+            kind: row.schedule_kind,
+            expr: row.schedule_expr,
+            everyMs: row.schedule_every_ms,
+          },
+          sessionTarget: row.session_target || 'main',
+          enabled: row.enabled ?? true,
+          lastRun: row.last_run,
+          nextRun: row.next_run,
+        }));
+
+        return NextResponse.json({
+          jobs,
+          source: 'supabase',
+          message: 'Gateway not available, showing cached data',
+        });
+      }
+    } catch (e) {
+      console.error('[Cron API] Supabase error:', e);
+    }
+  }
+
+  // Fallback to mock
+  return NextResponse.json({
+    jobs: getMockCronJobs(),
+    source: 'mock',
+    message: 'Gateway and Supabase not available',
+  });
 }
 
 function getMockCronJobs(): CronJob[] {
   const now = new Date();
-  const tomorrow9am = new Date(now);
-  tomorrow9am.setDate(tomorrow9am.getDate() + 1);
-  tomorrow9am.setHours(9, 0, 0, 0);
-
   return [
     {
       id: 'heartbeat-main',
@@ -84,30 +112,10 @@ function getMockCronJobs(): CronJob[] {
     },
     {
       id: 'daily-digest',
-      name: 'Daily Digest Report',
+      name: 'Daily Digest',
       schedule: { kind: 'cron', expr: '0 9 * * *' },
       sessionTarget: 'isolated',
       enabled: true,
-      lastRun: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
-      nextRun: tomorrow9am.toISOString(),
-    },
-    {
-      id: 'email-check',
-      name: 'Email Inbox Check',
-      schedule: { kind: 'every', everyMs: 60 * 60 * 1000 },
-      sessionTarget: 'main',
-      enabled: true,
-      lastRun: new Date(now.getTime() - 45 * 60 * 1000).toISOString(),
-      nextRun: new Date(now.getTime() + 15 * 60 * 1000).toISOString(),
-    },
-    {
-      id: 'calendar-sync',
-      name: 'Calendar Sync',
-      schedule: { kind: 'every', everyMs: 4 * 60 * 60 * 1000 },
-      sessionTarget: 'isolated',
-      enabled: true,
-      lastRun: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
-      nextRun: new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString(),
     },
   ];
 }
