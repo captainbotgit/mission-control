@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import fs from 'fs';
+import path from 'path';
 
 /**
  * API: Get cron jobs
- * Priority: Gateway (live) > Supabase (cached) > Mock
+ * Priority: Gateway (live) > Filesystem (HEARTBEAT.md) > Supabase > Mock
  */
 
 interface CronJob {
@@ -24,8 +26,46 @@ const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4440';
 const GATEWAY_TOKEN = process.env.GATEWAY_TOKEN || '';
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const AGENTS_BASE = '/Users/blakeai/.openclaw/agents';
 
-export async function GET(request: NextRequest) {
+function scanHeartbeatsForSchedules(): CronJob[] {
+  const jobs: CronJob[] = [];
+
+  try {
+    const agents = fs.readdirSync(AGENTS_BASE, { withFileTypes: true })
+      .filter(e => e.isDirectory());
+
+    for (const agent of agents) {
+      // Check agent-level HEARTBEAT.md
+      const hbPath = path.join(AGENTS_BASE, agent.name, 'agent', 'HEARTBEAT.md');
+      if (fs.existsSync(hbPath)) {
+        jobs.push({
+          id: `heartbeat-${agent.name}`,
+          name: `${agent.name} Heartbeat`,
+          schedule: { kind: 'every', everyMs: 30 * 60 * 1000 },
+          sessionTarget: 'main',
+          enabled: true,
+        });
+      }
+
+      // Check workspace-level HEARTBEAT.md
+      const wsHbPath = path.join(AGENTS_BASE, agent.name, 'workspace', 'HEARTBEAT.md');
+      if (wsHbPath !== hbPath && fs.existsSync(wsHbPath)) {
+        jobs.push({
+          id: `heartbeat-ws-${agent.name}`,
+          name: `${agent.name} Workspace Heartbeat`,
+          schedule: { kind: 'every', everyMs: 30 * 60 * 1000 },
+          sessionTarget: 'main',
+          enabled: true,
+        });
+      }
+    }
+  } catch {}
+
+  return jobs;
+}
+
+export async function GET(_request: NextRequest) {
   // Try gateway first (live data)
   if (GATEWAY_URL && GATEWAY_TOKEN) {
     try {
@@ -44,7 +84,7 @@ export async function GET(request: NextRequest) {
           source: 'gateway',
         });
       }
-    } catch (e) {
+    } catch {
       console.log('[Cron API] Gateway not available');
     }
   }
@@ -82,40 +122,26 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           jobs,
           source: 'supabase',
-          message: 'Gateway not available, showing cached data',
         });
       }
-    } catch (e) {
-      console.error('[Cron API] Supabase error:', e);
+    } catch {
+      console.error('[Cron API] Supabase error');
     }
   }
 
-  // Fallback to mock
-  return NextResponse.json({
-    jobs: getMockCronJobs(),
-    source: 'mock',
-    message: 'Gateway and Supabase not available',
-  });
-}
+  // Fallback: scan filesystem for heartbeat files
+  const fsJobs = scanHeartbeatsForSchedules();
+  if (fsJobs.length > 0) {
+    return NextResponse.json({
+      jobs: fsJobs,
+      source: 'filesystem',
+      message: 'Detected from HEARTBEAT.md files',
+    });
+  }
 
-function getMockCronJobs(): CronJob[] {
-  const now = new Date();
-  return [
-    {
-      id: 'heartbeat-main',
-      name: 'Main Session Heartbeat',
-      schedule: { kind: 'every', everyMs: 30 * 60 * 1000 },
-      sessionTarget: 'main',
-      enabled: true,
-      lastRun: new Date(now.getTime() - 15 * 60 * 1000).toISOString(),
-      nextRun: new Date(now.getTime() + 15 * 60 * 1000).toISOString(),
-    },
-    {
-      id: 'daily-digest',
-      name: 'Daily Digest',
-      schedule: { kind: 'cron', expr: '0 9 * * *' },
-      sessionTarget: 'isolated',
-      enabled: true,
-    },
-  ];
+  return NextResponse.json({
+    jobs: [],
+    source: 'none',
+    message: 'Gateway, Supabase, and filesystem sources unavailable',
+  });
 }

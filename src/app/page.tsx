@@ -68,14 +68,11 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Security Notice */}
+        {/* Footer */}
         <div className="mt-6 p-4 bg-gray-900/50 border border-gray-800 rounded-lg">
           <div className="flex items-center gap-2 text-xs text-gray-500">
-            <span>🔒</span>
-            <span>
-              This dashboard is read-only. Data sources: Agent memory files, gateway cron, on-chain wallet. 
-              No agent control or input fields.
-            </span>
+            <span>🚀</span>
+            <span>Dashboard with task management. Data sources: Agent memory files, gateway cron, on-chain wallet.</span>
           </div>
         </div>
       </div>
