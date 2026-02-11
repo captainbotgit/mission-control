@@ -99,37 +99,37 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Validate URL format — must be https, no localhost
+    // Validate URL format — must be https, allow localhost for internal previews
     const urlsToValidate = [body.previewUrl, body.videoUrl, body.contentUrl].filter(Boolean);
     for (const url of urlsToValidate) {
-      if (!url.startsWith('https://')) {
+      const isLocalhost = url.includes('localhost') || url.includes('127.');
+      if (!url.startsWith('https://') && !url.startsWith('http://localhost') && !url.startsWith('http://127.')) {
         return NextResponse.json({
-          error: `URL must use https://. Got: ${url}`,
+          error: `URL must use https:// or http://localhost. Got: ${url}`,
         }, { status: 400 });
       }
-      if (url.includes('localhost') || url.includes('127.')) {
-        return NextResponse.json({
-          error: `Localhost URLs are not allowed: ${url}`,
-        }, { status: 400 });
-      }
+      // Allow localhost URLs for internal agent deliverables
     }
 
-    // Async reachability check for the primary preview/video URL
+    // Async reachability check for the primary preview/video URL (skip for localhost)
     if (urlToCheck) {
-      try {
-        const headRes = await fetch(urlToCheck, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
-        if (!headRes.ok) {
+      const isLocalhost = urlToCheck.includes('localhost') || urlToCheck.includes('127.');
+      if (!isLocalhost) {
+        try {
+          const headRes = await fetch(urlToCheck, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
+          if (!headRes.ok) {
+            return NextResponse.json({
+              error: 'Preview URL is not reachable',
+              url: urlToCheck,
+              status: headRes.status,
+            }, { status: 400 });
+          }
+        } catch {
           return NextResponse.json({
             error: 'Preview URL is not reachable',
             url: urlToCheck,
-            status: headRes.status,
           }, { status: 400 });
         }
-      } catch {
-        return NextResponse.json({
-          error: 'Preview URL is not reachable',
-          url: urlToCheck,
-        }, { status: 400 });
       }
     }
 
