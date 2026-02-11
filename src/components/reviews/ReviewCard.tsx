@@ -100,8 +100,51 @@ export function ReviewCard({ review, onDecision, expanded = false, onToggleExpan
             </div>
           </div>
 
+          {/* Preview Button */}
+          <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+            {review.previewUrl ? (
+              <a
+                href={review.previewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium inline-flex items-center gap-1 transition-colors"
+              >
+                🔗 Preview
+              </a>
+            ) : review.videoUrl ? (
+              <a
+                href={review.videoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium inline-flex items-center gap-1 transition-colors"
+              >
+                🎬 Watch
+              </a>
+            ) : review.contentUrl ? (
+              <a
+                href={review.contentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium inline-flex items-center gap-1 transition-colors"
+              >
+                📎 View
+              </a>
+            ) : (review.type === 'document' || review.type === 'copy') && review.content ? (
+              <button
+                onClick={(e) => { e.stopPropagation(); onToggleExpand?.(); }}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium inline-flex items-center gap-1 transition-colors"
+              >
+                📄 Read
+              </button>
+            ) : (
+              <span className="px-3 py-1.5 bg-red-600/20 text-red-400 rounded-lg text-sm font-medium inline-flex items-center gap-1">
+                ⚠️ No Preview
+              </span>
+            )}
+          </div>
+
           {/* Expand Arrow */}
-          <span className="text-gray-500 text-xl">
+          <span className="text-gray-500 text-xl shrink-0">
             {expanded ? '▼' : '▶'}
           </span>
         </div>
@@ -130,7 +173,7 @@ export function ReviewCard({ review, onDecision, expanded = false, onToggleExpan
                   href={review.previewUrl} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-blue-400 hover:text-blue-300"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-medium transition-colors"
                 >
                   🔗 Open Preview: {review.previewUrl}
                 </a>
@@ -138,7 +181,9 @@ export function ReviewCard({ review, onDecision, expanded = false, onToggleExpan
                   src={review.previewUrl}
                   className="w-full h-[300px] rounded-lg border border-gray-700"
                   title={review.title}
+                  onError={(e) => { (e.target as HTMLIFrameElement).style.display = 'none'; }}
                 />
+                <p className="text-xs text-gray-500">If the preview doesn't load above, use the direct link.</p>
               </div>
             ) : review.type === 'video' && review.videoUrl ? (
               <div className="space-y-2">
@@ -175,7 +220,7 @@ export function ReviewCard({ review, onDecision, expanded = false, onToggleExpan
                 🔗 View Content: {review.contentUrl}
               </a>
             ) : (
-              <p className="text-gray-500 italic">No preview available</p>
+              <p className="text-gray-500 italic">No preview was provided with this submission. Ask the submitter to resubmit with a working preview URL.</p>
             )}
           </div>
 
