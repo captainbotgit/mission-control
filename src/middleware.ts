@@ -34,14 +34,18 @@ export function middleware(request: NextRequest) {
   // API routes: check bearer token OR cookie
   if (path.startsWith("/api/")) {
     const authHeader = request.headers.get("authorization");
-    const apiSecret = process.env.API_SECRET || process.env.DASHBOARD_TOKEN;
+    const apiSecret = process.env.API_SECRET;
+    const dashboardToken = process.env.DASHBOARD_TOKEN;
     const cookieToken = request.cookies.get("dashboard_token")?.value;
 
-    if (!apiSecret) return NextResponse.next(); // no auth configured (local dev)
+    if (!apiSecret && !dashboardToken) return NextResponse.next(); // no auth configured (local dev)
 
-    // Accept bearer token (for agents) or cookie (for Blake's browser)
+    // Accept bearer token (for agents) OR cookie (for Blake's browser)
     const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-    if (bearerToken === apiSecret || cookieToken === apiSecret) {
+    if (bearerToken && (bearerToken === apiSecret || bearerToken === dashboardToken)) {
+      return NextResponse.next();
+    }
+    if (cookieToken && (cookieToken === dashboardToken || cookieToken === apiSecret)) {
       return NextResponse.next();
     }
 
