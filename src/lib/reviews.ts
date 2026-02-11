@@ -4,7 +4,7 @@ import path from 'path';
 // Review Portal Data Layer
 // Supports both file-based (local) and Supabase (production) storage
 
-export type ReviewStatus = 'pending' | 'approved' | 'rejected' | 'changes_requested';
+export type ReviewStatus = 'pending' | 'approved' | 'rejected' | 'changes_requested' | 'archived';
 export type ReviewType = 'document' | 'copy' | 'image' | 'website' | 'video' | 'code' | 'other';
 
 export interface ReviewItem {
