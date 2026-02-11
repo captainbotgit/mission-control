@@ -45,7 +45,7 @@ export async function PATCH(
     const body = await request.json();
 
     // Validate status
-    const validStatuses: ReviewStatus[] = ['approved', 'rejected', 'changes_requested', 'pending'];
+    const validStatuses: ReviewStatus[] = ['approved', 'rejected', 'changes_requested', 'pending', 'archived'];
     if (!body.status || !validStatuses.includes(body.status)) {
       return NextResponse.json({
         error: 'Invalid status',
