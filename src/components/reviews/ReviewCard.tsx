@@ -34,6 +34,7 @@ const statusBadges = {
   approved: 'bg-green-500/20 text-green-400',
   rejected: 'bg-red-500/20 text-red-400',
   changes_requested: 'bg-amber-500/20 text-amber-400',
+  archived: 'bg-gray-500/20 text-gray-400',
 };
 
 export function ReviewCard({ review, onDecision, expanded = false, onToggleExpand }: ReviewCardProps) {
