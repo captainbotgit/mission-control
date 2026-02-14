@@ -25,7 +25,9 @@ export function middleware(request: NextRequest) {
      path === "/api/activity" || 
      path === "/api/tasks" || 
      path === "/api/cron" ||
-     path === "/api/wallet");
+     path === "/api/wallet" ||
+     path === "/api/deliverables" ||
+     path === "/api/webhooks/approve");
   
   if (isReadOnlyDashboardAPI) {
     return NextResponse.next();
